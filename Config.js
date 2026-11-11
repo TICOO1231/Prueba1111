@@ -7,9 +7,9 @@
 //      - Project URL            → SUPABASE_URL
 //      - anon / publishable key → SUPABASE_ANON_KEY
 //    (usa SOLO la clave pública. NUNCA pongas la service_role key aquí.)
-// 3) En tu HTML carga este archivo ANTES de tilcayo.js:
-//      <script src="config.js"></script>
-//      <script src="tilcayo.js"></script>
+// 3) En tu HTML carga este archivo ANTES de game.js:
+//      <script src="Config.js"></script>
+//      <script src="game.js"></script>
 // ============================================================
 window.TILCAYO_CONFIG={
   SUPABASE_URL:"https://zueoceniwkadhblwbizc.supabase.co",
