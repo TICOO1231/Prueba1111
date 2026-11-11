@@ -1,4 +1,16 @@
 "use strict";
+// Si el HTML no cargó Config.js, intenta cargarlo solo (prueba "Config.js" y luego "config.js").
+(function(){
+  if(window.TilcayoDB)return;
+  const names=["Config.js","config.js"];
+  (function next(i){
+    if(i>=names.length)return;
+    const sc=document.createElement("script");
+    sc.src=names[i];
+    sc.onerror=()=>{if(sc.remove)sc.remove();next(i+1);};
+    (document.head||document.documentElement).appendChild(sc);
+  })(0);
+})();
 // TILCAYO: LA ODISEA DEL DISTRITO 2 (El Alto, 4.050 m s.n.m.)  ·  v4
 const cv=document.getElementById("c"),ctx=cv.getContext("2d");
 const W=960,H=540,GY=450,LW=24600,GOAL=24300,ARENA=23550,G=0.55;
@@ -289,6 +301,11 @@ function start(){
 
 // ---------- PANTALLAS: menú, guía, trofeos ----------
 let sel=0,gpage=0,saveMsg="",lockUntil=0,lastRun=null,tload=0,trophy={status:"idle",rows:[],msg:""};
+function dbStatus(){
+  if(!window.TilcayoDB)return"No se cargó Config.js: revisa el nombre y el <script> en index.html";
+  if(!window.TilcayoDB.enabled())return"Config.js cargó, pero faltan la URL o la clave de Supabase";
+  return"Ranking en línea activo";
+}
 const DB=()=>(window.TilcayoDB&&window.TilcayoDB.enabled())?window.TilcayoDB:null;
 
 // Puntajes locales (respaldo si no hay Supabase o no hay internet)
@@ -1187,7 +1204,7 @@ function titleScreen(){
   ctx.textAlign="left";
   drawBtns();
   ctx.textAlign="center";ctx.font="13px Arial";ctx.fillStyle="#9fb6d8";
-  ctx.fillText(DB()?"Ranking en línea activo":"Ranking solo en este dispositivo (falta configurar Config.js)",W/2,H-30);
+  ctx.fillText(dbStatus(),W/2,H-30);
   ctx.fillText("↑ ↓ y Enter, o toca una opción · M: música",W/2,H-12);
   ctx.textAlign="left";
 }
