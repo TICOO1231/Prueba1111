@@ -310,7 +310,7 @@ function setScreen(s){st=s;sel=0;}
 function toMenu(){start();setScreen("menu");msgs=[];bub=null;Snd.music("menu");}
 function loadTrophies(){
   const my=++tload,n=Math.min(10,(window.TILCAYO_CONFIG&&window.TILCAYO_CONFIG.TOP_N)||10),db=DB();
-  if(!db){trophy={status:"local",rows:LocalScores.top(n),msg:"Ranking local de este dispositivo. Configura config.js para el ranking en línea."};return;}
+  if(!db){trophy={status:"local",rows:LocalScores.top(n),msg:"Ranking local de este dispositivo. Configura Config.js para el ranking en línea."};return;}
   trophy={status:"loading",rows:[],msg:""};
   db.getTop(n).then(r=>{
     if(my!==tload)return;
@@ -1187,7 +1187,7 @@ function titleScreen(){
   ctx.textAlign="left";
   drawBtns();
   ctx.textAlign="center";ctx.font="13px Arial";ctx.fillStyle="#9fb6d8";
-  ctx.fillText(DB()?"Ranking en línea activo":"Ranking solo en este dispositivo (falta configurar config.js)",W/2,H-30);
+  ctx.fillText(DB()?"Ranking en línea activo":"Ranking solo en este dispositivo (falta configurar Config.js)",W/2,H-30);
   ctx.fillText("↑ ↓ y Enter, o toca una opción · M: música",W/2,H-12);
   ctx.textAlign="left";
 }
