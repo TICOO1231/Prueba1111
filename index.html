@@ -1,24 +1,30 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Tilcayo: La Odisea del Distrito 2</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div id="wrap">
-  <canvas id="c" width="960" height="540"></canvas>
-  <div id="pad">
-    <div class="grp">
-      <button id="bl" aria-label="Izquierda">◀</button>
-      <button id="br" aria-label="Derecha">▶</button>
-    </div>
-    <button id="bj" aria-label="Saltar">SALTAR</button>
-  </div>
-</div>
-<!-- Config.js va PRIMERO (conexión con Supabase), luego el juego -->
-<script src="Config.js"></script>
-<script src="game.js"></script>
-</body>
+<!DOCTYPE html>  
+<html lang="es">  
+<head>  
+  <meta charset="UTF-8">  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">  
+  <title>Tilcayo: La Odisea del Distrito 2</title>  
+  <link rel="stylesheet" href="style.css">  
+</head>  
+<body>  
+  <div id="wrap">  
+    <canvas id="c" width="960" height="540"></canvas>  
+    <div id="pad">  
+      <div class="grp">  
+        <button id="bl" aria-label="Izquierda">◀</button>  
+        <button id="br" aria-label="Derecha">▶</button>  
+      </div>  
+      <button id="bj" aria-label="Saltar">SALTAR</button>  
+    </div>  
+  </div>  
+
+  <!-- 1. PRIMERO: Librería oficial de Supabase (SDK de JavaScript v2) -->  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>  
+
+  <!-- 2. SEGUNDO: Tu archivo de configuración y conexión -->  
+  <script src="Config.js"></script>  
+
+  <!-- 3. TERCERO: La lógica principal del juego -->  
+  <script src="game.js"></script>  
+</body>  
 </html>
