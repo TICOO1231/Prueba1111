@@ -1,5 +1,5 @@
 "use strict";
-// Si el HTML no cargó Config.js, intenta cargarlo solo (prueba "Config.js" y luego "config.js").
+// Hecho con amor por JFTC
 (function(){
   if(window.TilcayoDB)return;
   const names=["Config.js","config.js"];
