@@ -170,7 +170,12 @@ const Snd=(()=>{
       document.addEventListener("visibilitychange",()=>{if(!ac)return;if(document.hidden)ac.suspend();else ac.resume();});
       if(want){const w=want;cur=null;music(w);}
     }
-    if(ac.state==="suspended")ac.resume();
+    if(ac.state!=="running"){
+      try{ // truco para móviles: un sonido mudo dentro del gesto del usuario
+        const b=ac.createBuffer(1,1,22050),sr=ac.createBufferSource();sr.buffer=b;sr.connect(ac.destination);sr.start(0);
+      }catch(e){}
+      try{const r=ac.resume();if(r&&r.catch)r.catch(()=>{});}catch(e){}
+    }
   }
   function toggle(){
     muted=!muted;if(master)master.gain.value=muted?0:.7;
@@ -453,6 +458,8 @@ function bind(id,key){
   ["pointerup","pointercancel","pointerleave"].forEach(v=>el.addEventListener(v,off));
 }
 bind("bl","l");bind("br","r");bind("bj","j");
+// Móviles: el audio solo se desbloquea cuando el toque TERMINA (touchend/pointerup/click), no en pointerdown.
+["touchend","pointerup","click","touchstart"].forEach(v=>addEventListener(v,()=>Snd.unlock(),{capture:true,passive:true}));
 const cvPos=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};};
 const inBtn=(b,m)=>m.x>=b.x&&m.x<=b.x+b.w&&m.y>=b.y&&m.y<=b.y+b.h;
 cv.addEventListener("pointerdown",e=>{
