@@ -1,5 +1,5 @@
 "use strict";
-// TILCAYO: LA ODISEA DEL DISTRITO 2 (El Alto, 4.050 m s.n.m.)  ·  v3
+// TILCAYO: LA ODISEA DEL DISTRITO 2 (El Alto, 4.050 m s.n.m.)  ·  v4
 const cv=document.getElementById("c"),ctx=cv.getContext("2d");
 const W=960,H=540,GY=450,LW=24600,GOAL=24300,ARENA=23550,G=0.55;
 const BLUE="#1A4B84",GOLD="#F4C430",MAG="#E03A65",STEEL="#708090",INK="#1b1424";
@@ -24,6 +24,38 @@ const zoneAt=x=>{let z=0;for(let i=1;i<ZONES.length;i++)if(x>=ZONES[i].x)z=i;ret
 const TIPS={moto:"¡Moto-chorro! Oye el motor y salta antes de que embista.",slinger:"Alguien lanza piedras: salta por encima.",car:"Inseguridad vial: espera que pase el auto y salta.",thief:"¡Un chorro! Písalo o esquívalo, te roba monedas.",
  dog:"Perro callejero: se prepara y embiste.",boss:"¡Don Chorro! Písalo 3 veces.",saw:"Sierras de fábrica: salta con ritmo.",
  pit:"¡Zanja de obras! Salta antes del borde o cruza por las tablas.",crumble:"Las tablas viejas se rompen: no te quedes quieto.",spring:"Resorte: salta encima para llegar muy alto.",box:"Golpea las cajas desde abajo para sacar monedas y poderes."};
+
+// ---------- GUÍA (todo el contexto del lugar) ----------
+const GUIDE=[
+ {t:"La leyenda",p:[LORE[0],LORE[1],LORE[2],
+  "Objetivo: junta los 4 sellos de luz, derrota a Don Chorro (písalo 3 veces) y llega al paradero de la otra ruta.",
+  "Tienes 3 corazones. Si los pierdes, el recorrido termina y tu puntaje puede entrar al Salón de Trofeos."]},
+ {t:"El lugar",p:[
+  "El Alto, Bolivia, se levanta a 4.050 metros sobre el nivel del mar. Este recorrido transcurre por el Distrito 2.",
+  "Villa Santiago II: el barrio donde comienza el viaje. Aquí se asentaron las familias mineras.",
+  "Feria de la Chacana: la Chacana es el Ojo del Universo. Llegar en taxi cuesta entre Bs 10 y 25.",
+  "Entrada Folklórica: la fiesta del Apóstol Santiago, con sus bailarines y su color. Ojo con los hurtos en las ferias.",
+  "Zona Industrial La Francesa: fábricas y chimeneas. Las visitas industriales necesitan permiso.",
+  "Avenida al Paradero: el tramo final, donde espera el paradero de la otra ruta.",
+  "Por encima de los techos cruza el teleférico morado."]},
+ {t:"Las cuatro paradas",p:STOPS.map((s,i)=>(i+1)+". "+s.say).concat([
+  "Al recoger un sello, esa parada queda guardada como tu punto de control."])},
+ {t:"Peligros del camino",p:["moto","dog","thief","car","slinger","saw","pit","crumble","boss"].map(k=>"• "+TIPS[k])},
+ {t:"Cajas y poderes",p:[
+  "Golpea las cajas desde abajo con un salto. Las cajas con ? dan una moneda; las que tienen la Chacana dan poderes.",
+  "Escudo de aguayo: te protege del daño por un rato.",
+  "Doble salto: puedes saltar otra vez en el aire.",
+  "Imán de monedas: atrae las monedas cercanas.",
+  "Vida extra: suma un corazón (hasta 5).",
+  "Resorte: salta encima para llegar muy alto. Las plataformas flotantes te ayudan a cruzar las zanjas."]},
+ {t:"Controles y puntos",p:[
+  "Mover: ← → o A D. Saltar: Espacio, ↑ o W (mantén para saltar más alto). Música: M.",
+  "En celular usa los botones de la pantalla.",
+  "Pisa a los enemigos para derrotarlos. Un chorro que te toca te roba la mitad de tus monedas; si lo pisas ganas +5 Bs.",
+  "Puntos: moneda +10 · enemigo +30 · poder +50 · sello +100 · Don Chorro +500.",
+  "Si te lastiman, vuelves a la última parada o punto de control.",
+  "Al terminar, escribe tu nombre para guardar tu puntaje en el Salón de Trofeos."]}
+];
 
 // ---------- AUDIO (WebAudio, todo procedural) ----------
 const Snd=(()=>{
@@ -212,7 +244,12 @@ function say(t,pri){ if(pri){msgs.unshift(t);if(bub)bub.t=0;}else if(!msgs.inclu
 function tipOnce(k){ if(!flags[k]){flags[k]=1;say(TIPS[k]);} }
 function toast(t){say(t,true);}
 function burst(x,y,c,n=10){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-.8)*5,l:30+Math.random()*20,c,s:3+Math.random()*3});}
-function endGame(s){st=s;Snd.sfx(s==="win"?"win":"lose");Snd.music("menu");}
+function endGame(s){
+  st=s;sel=0;Snd.sfx(s==="win"?"win":"lose");Snd.music("menu");
+  lockUntil=Date.now()+800;saveMsg="";
+  lastRun={won:s==="win",score,sellos,coins:money,time:Math.floor(frame/60)};
+  if(score>0)NameBox.open(lastRun,msg=>{saveMsg=msg;lockUntil=Date.now()+300;});
+}
 
 function start(){
   coins=[];
@@ -250,14 +287,145 @@ function start(){
   say("¡Miau! Soy Tilcayo. Junta los 4 sellos de luz.");
 }
 
+// ---------- PANTALLAS: menú, guía, trofeos ----------
+let sel=0,gpage=0,saveMsg="",lockUntil=0,lastRun=null,tload=0,trophy={status:"idle",rows:[],msg:""};
+const DB=()=>(window.TilcayoDB&&window.TilcayoDB.enabled())?window.TilcayoDB:null;
+
+// Puntajes locales (respaldo si no hay Supabase o no hay internet)
+const LocalScores=(()=>{
+  const K="tilcayo_local_scores";
+  const all=()=>{try{return JSON.parse(localStorage.getItem(K)||"[]");}catch(e){return[];}};
+  return{
+    add(e){
+      const a=all();
+      a.push({player_name:e.name,score:e.score,sellos:e.sellos,coins:e.coins,time_seconds:e.time,won:e.won,created_at:new Date().toISOString()});
+      a.sort((x,y)=>y.score-x.score);
+      try{localStorage.setItem(K,JSON.stringify(a.slice(0,30)));}catch(err){}
+    },
+    top(n){return all().sort((x,y)=>y.score-x.score).slice(0,n);}
+  };
+})();
+
+function setScreen(s){st=s;sel=0;}
+function toMenu(){start();setScreen("menu");msgs=[];bub=null;Snd.music("menu");}
+function loadTrophies(){
+  const my=++tload,n=Math.min(10,(window.TILCAYO_CONFIG&&window.TILCAYO_CONFIG.TOP_N)||10),db=DB();
+  if(!db){trophy={status:"local",rows:LocalScores.top(n),msg:"Ranking local de este dispositivo. Configura config.js para el ranking en línea."};return;}
+  trophy={status:"loading",rows:[],msg:""};
+  db.getTop(n).then(r=>{
+    if(my!==tload)return;
+    if(r.ok)trophy={status:"ok",rows:r.rows,msg:"Ranking en línea · Top "+n};
+    else trophy={status:"local",rows:LocalScores.top(n),msg:"Sin conexión con el ranking en línea. Mostrando puntajes de este dispositivo."};
+  });
+}
+function openTrophies(){setScreen("trophies");loadTrophies();}
+
+// Botones de cada pantalla (se usan para dibujar, hacer clic y navegar con teclado)
+function items(){
+  const cx=W/2;
+  const col=(arr,y0,w,h,gap)=>arr.map((o,i)=>({x:cx-w/2,y:y0+i*(h+gap),w,h,l:o[0],fn:o[1]}));
+  if(st==="menu")return col([["Iniciar recorrido",start],["Guía",()=>{gpage=0;setScreen("guide");}],["Salón de trofeos",openTrophies]],285,360,54,14);
+  if(st==="win"||st==="lost")return col([["Jugar de nuevo",start],["Salón de trofeos",openTrophies],["Menú principal",toMenu]],330,320,48,12);
+  if(st==="guide")return[
+    {x:90,y:462,w:190,h:44,l:"◀ Anterior",fn:()=>{gpage=(gpage+GUIDE.length-1)%GUIDE.length;}},
+    {x:cx-95,y:462,w:190,h:44,l:"Volver",fn:toMenu},
+    {x:W-280,y:462,w:190,h:44,l:"Siguiente ▶",fn:()=>{gpage=(gpage+1)%GUIDE.length;}}];
+  if(st==="trophies")return[
+    {x:cx-250,y:462,w:230,h:44,l:"Actualizar",fn:loadTrophies},
+    {x:cx+20,y:462,w:230,h:44,l:"Volver",fn:toMenu}];
+  return[];
+}
+function menuKey(c){
+  const it=items();
+  if(st==="guide"){
+    if(c==="ArrowLeft"||c==="KeyA")it[0].fn();
+    else if(c==="ArrowRight"||c==="KeyD"||c==="Enter"||c==="Space"){if(gpage<GUIDE.length-1)gpage++;else toMenu();}
+    else if(c==="Escape")toMenu();
+    return;
+  }
+  if(c==="Escape"){if(st!=="menu")toMenu();return;}
+  if(!it.length)return;
+  if(c==="ArrowUp"||c==="KeyW"||c==="ArrowLeft"||c==="KeyA")sel=(sel+it.length-1)%it.length;
+  else if(c==="ArrowDown"||c==="KeyS"||c==="ArrowRight"||c==="KeyD")sel=(sel+1)%it.length;
+  else if(c==="Enter"||c==="Space"){if(it[sel])it[sel].fn();}
+}
+
+// Ventanita para escribir el nombre y guardar el puntaje (HTML sobre el canvas)
+const NameBox=(()=>{
+  const KEY="tilcayo_name";
+  let el=null,field,info,note,bSave,bSkip,busy=false,cur=null,done=null;
+  const mk=(tag,css,txt)=>{const e=document.createElement(tag);e.style.cssText=css;if(txt)e.textContent=txt;return e;};
+  const BTN="flex:1;padding:12px;font-size:16px;font-weight:bold;border-radius:10px;border:0;cursor:pointer;";
+  const lock=b=>{bSave.disabled=b;bSkip.disabled=b;};
+  function build(){
+    el=mk("div","position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(5,12,30,.75);font-family:Arial,sans-serif;");
+    const box=mk("div","width:min(92vw,380px);background:#12284e;border:3px solid #F4C430;border-radius:16px;padding:20px;color:#fff;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.5);");
+    info=mk("div","font-size:15px;margin:6px 0 14px;color:#cceeff;");
+    field=mk("input","width:100%;box-sizing:border-box;padding:12px;font-size:18px;border-radius:10px;border:2px solid #1A4B84;text-align:center;outline:none;");
+    field.type="text";field.maxLength=16;field.placeholder="Tu nombre (máx. 16)";field.autocomplete="off";
+    note=mk("div","min-height:18px;font-size:13px;margin:8px 0 10px;color:#ffd27a;");
+    const row=mk("div","display:flex;gap:10px;");
+    bSave=mk("button",BTN+"background:#F4C430;color:#1b1424;","Guardar");
+    bSkip=mk("button",BTN+"background:#2a4a7a;color:#fff;","Omitir");
+    row.append(bSave,bSkip);
+    box.append(mk("div","font-weight:bold;font-size:22px;color:#F4C430;","¡Guarda tu puntaje!"),info,field,note,row);
+    el.append(box);document.body.appendChild(el);
+    bSave.addEventListener("click",submit);
+    bSkip.addEventListener("click",()=>{if(!busy)close("");});
+    field.addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();submit();}});
+  }
+  function open(r,onDone){
+    if(!el)build();
+    cur=r;done=onDone;busy=false;lock(false);
+    Object.keys(keys).forEach(k=>{keys[k]=false;});inp.l=inp.r=inp.j=0;
+    info.textContent=(r.won?"¡Completaste el recorrido! ":"Fin del recorrido. ")+"Puntos: "+r.score;
+    let saved="";try{saved=localStorage.getItem(KEY)||"";}catch(e){}
+    field.value=saved;note.textContent="";
+    el.style.display="flex";
+    setTimeout(()=>{try{field.focus();field.select();}catch(e){}},60);
+  }
+  function close(msg){
+    if(el)el.style.display="none";
+    busy=false;
+    const d=done;done=null;if(d)d(msg);
+  }
+  async function submit(){
+    if(busy)return;
+    const name=(field.value||"").replace(/\s+/g," ").trim().slice(0,16);
+    if(!name){note.textContent="Escribe un nombre para guardar.";field.focus();return;}
+    busy=true;lock(true);note.textContent="Guardando...";
+    try{localStorage.setItem(KEY,name);}catch(e){}
+    const entry={name,score:cur.score,sellos:cur.sellos,coins:cur.coins,time:cur.time,won:cur.won};
+    LocalScores.add(entry);
+    const db=DB();let msg;
+    if(db){
+      const r=await db.submitScore(entry);
+      msg=r.ok?"¡Puntaje guardado en el Salón de Trofeos!":"No se pudo subir; se guardó solo en este dispositivo.";
+    }else msg="Guardado solo en este dispositivo (falta configurar Supabase).";
+    lock(false);close(msg);
+  }
+  return{open,isOpen:()=>!!el&&el.style.display!=="none"};
+})();
+
 // ---------- ENTRADA ----------
-function press(){ Snd.unlock(); if(st==="play")jp=true; else start(); }
+function press(){
+  Snd.unlock();
+  if(NameBox.isOpen())return;
+  if(st==="play")jp=true;
+  else if(Date.now()>=lockUntil)menuKey("Enter");
+}
 addEventListener("keydown",e=>{
+  if(NameBox.isOpen())return;
   Snd.unlock();
   keys[e.code]=true;
   if(e.code==="KeyM"&&!e.repeat){Snd.toggle();return;}
-  if(["Space","ArrowUp","KeyW"].includes(e.code)&&!e.repeat){e.preventDefault();press();}
-  if(e.code==="Enter"&&!e.repeat&&st!=="play")start();
+  if(st==="play"){
+    if(["Space","ArrowUp","KeyW"].includes(e.code)&&!e.repeat){e.preventDefault();jp=true;}
+    return;
+  }
+  if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault();
+  if(e.repeat||Date.now()<lockUntil)return;
+  menuKey(e.code);
 });
 addEventListener("keyup",e=>keys[e.code]=false);
 function bind(id,key){
@@ -268,11 +436,20 @@ function bind(id,key){
   ["pointerup","pointercancel","pointerleave"].forEach(v=>el.addEventListener(v,off));
 }
 bind("bl","l");bind("br","r");bind("bj","j");
+const cvPos=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};};
+const inBtn=(b,m)=>m.x>=b.x&&m.x<=b.x+b.w&&m.y>=b.y&&m.y<=b.y+b.h;
 cv.addEventListener("pointerdown",e=>{
   e.preventDefault();Snd.unlock();
-  const r=cv.getBoundingClientRect(),mx=(e.clientX-r.left)*W/r.width,my=(e.clientY-r.top)*H/r.height;
-  if(mx>W-60&&my<60){Snd.toggle();return;}
-  if(st!=="play")start();
+  const m=cvPos(e);
+  if(m.x>W-60&&m.y<60){Snd.toggle();return;}
+  if(st==="play"||NameBox.isOpen()||Date.now()<lockUntil)return;
+  const it=items();
+  for(let i=0;i<it.length;i++)if(inBtn(it[i],m)){sel=i;it[i].fn();return;}
+});
+cv.addEventListener("pointermove",e=>{
+  if(st==="play"||NameBox.isOpen())return;
+  const m=cvPos(e),it=items();
+  for(let i=0;i<it.length;i++)if(inBtn(it[i],m))sel=i;
 });
 document.addEventListener("contextmenu",e=>e.preventDefault());
 addEventListener("blur",()=>{inp.l=inp.r=inp.j=0;});
@@ -970,8 +1147,103 @@ function overlay(t,sub,lines,cta){
   ctx.textAlign="center";ctx.fillStyle="#000";ctx.font="bold 42px Arial";ctx.fillText(t,W/2+2,122);ctx.fillStyle=GOLD;ctx.fillText(t,W/2,120);
   ctx.fillStyle="#fff";ctx.font="bold 19px Arial";ctx.fillText(sub,W/2,158);
   ctx.font="17px Arial";lines.forEach((l,i)=>ctx.fillText(l,W/2,215+i*28));
-  ctx.fillStyle=Math.floor(Date.now()/500)%2?MAG:"#ff8fb0";ctx.font="bold 20px Arial";ctx.fillText(cta,W/2,455);
+  if(cta){ctx.fillStyle=Math.floor(Date.now()/500)%2?MAG:"#ff8fb0";ctx.font="bold 20px Arial";ctx.fillText(cta,W/2,455);}
   ctx.textAlign="left";
+}
+
+// ---------- DIBUJO: pantallas (menú, guía, trofeos, fin) ----------
+const fmtTime=t=>Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
+function wrap(text,maxW){
+  const words=String(text).split(" "),lines=[];let cur="";
+  words.forEach(w=>{const t=cur?cur+" "+w:w;if(ctx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;});
+  if(cur)lines.push(cur);return lines;
+}
+function fitText(paras,maxW,maxH){
+  let out=null;
+  for(const sz of [16,15,14,13]){
+    ctx.font=sz+"px Arial";
+    const lh=Math.round(sz*1.45),L=paras.map(p=>wrap(p,maxW)),h=L.reduce((a,l)=>a+l.length*lh+6,0);
+    out={L,lh,s:sz};if(h<=maxH)break;
+  }
+  return out;
+}
+function drawBtns(){
+  items().forEach((b,i)=>{
+    const on=i===sel,big=b.h>50;
+    rr(b.x-2,b.y-2,b.w+4,b.h+4,14,on?GOLD:"rgba(255,255,255,.18)");
+    rr(b.x,b.y,b.w,b.h,12,on?"#2a5fa8":"rgba(18,40,78,.96)");
+    if(on&&big)chak(b.x+30,b.y+b.h/2,3,GOLD);
+    ctx.fillStyle=on?"#fff":"#cceeff";ctx.font="bold "+(big?22:18)+"px Arial";ctx.textAlign="center";
+    ctx.fillText(b.l,b.x+b.w/2,b.y+b.h/2+(big?8:6));ctx.textAlign="left";
+  });
+}
+function titleScreen(){
+  R(0,0,W,H,"rgba(10,25,55,.84)");
+  chak(W/2-270,112,10,GOLD);chak(W/2+270,112,10,GOLD);
+  ctx.textAlign="center";
+  ctx.font="bold 66px Arial";ctx.fillStyle="#000";ctx.fillText("TILCAYO",W/2+3,133);ctx.fillStyle=GOLD;ctx.fillText("TILCAYO",W/2,130);
+  ctx.font="bold 21px Arial";ctx.fillStyle="#fff";ctx.fillText("La Odisea del Distrito 2",W/2,168);
+  ctx.font="14px Arial";ctx.fillStyle="#cceeff";ctx.fillText("El Alto, Bolivia · 4.050 m s.n.m.",W/2,194);
+  ctx.textAlign="left";
+  drawBtns();
+  ctx.textAlign="center";ctx.font="13px Arial";ctx.fillStyle="#9fb6d8";
+  ctx.fillText(DB()?"Ranking en línea activo":"Ranking solo en este dispositivo (falta configurar config.js)",W/2,H-30);
+  ctx.fillText("↑ ↓ y Enter, o toca una opción · M: música",W/2,H-12);
+  ctx.textAlign="left";
+}
+function guideScreen(){
+  R(0,0,W,H,"rgba(10,25,55,.94)");
+  const g=GUIDE[gpage];
+  ctx.textAlign="center";
+  ctx.fillStyle=MAG;ctx.font="bold 15px Arial";ctx.fillText("GUÍA DEL RECORRIDO · "+(gpage+1)+" / "+GUIDE.length,W/2,40);
+  ctx.font="bold 34px Arial";ctx.fillStyle="#000";ctx.fillText(g.t,W/2+2,90);ctx.fillStyle=GOLD;ctx.fillText(g.t,W/2,88);
+  R(90,104,W-180,3,"rgba(255,255,255,.2)");R(90,104,(W-180)*(gpage+1)/GUIDE.length,3,GOLD);
+  ctx.textAlign="left";
+  const f=fitText(g.p,W-200,300);
+  ctx.font=f.s+"px Arial";ctx.fillStyle="#fff";
+  let y=140;
+  f.L.forEach(ls=>{ls.forEach(l=>{ctx.fillText(l,100,y);y+=f.lh;});y+=6;});
+  drawBtns();
+}
+function trophiesScreen(){
+  R(0,0,W,H,"rgba(10,25,55,.94)");
+  ctx.textAlign="center";
+  ctx.font="bold 36px Arial";ctx.fillStyle="#000";ctx.fillText("SALÓN DE TROFEOS",W/2+2,64);ctx.fillStyle=GOLD;ctx.fillText("SALÓN DE TROFEOS",W/2,62);
+  ctx.font="15px Arial";ctx.fillStyle="#cceeff";ctx.fillText("Los mejores recorridos del Distrito 2",W/2,88);
+  const x0=110,x1=W-110;
+  rr(x0,104,x1-x0,26,8,"rgba(244,196,48,.18)");
+  ctx.font="bold 12px Arial";ctx.fillStyle=GOLD;
+  ctx.textAlign="left";ctx.fillText("#",x0+26,121);ctx.fillText("JUGADOR",x0+70,121);
+  ctx.textAlign="right";ctx.fillText("PUNTOS",x1-210,121);ctx.fillText("SELLOS",x1-120,121);ctx.fillText("TIEMPO",x1-16,121);
+  const rows=trophy.rows||[];
+  if(trophy.status==="loading"){
+    ctx.textAlign="center";ctx.font="18px Arial";ctx.fillStyle="#fff";ctx.fillText("Cargando el ranking...",W/2,270);
+  }else if(!rows.length){
+    ctx.textAlign="center";ctx.font="18px Arial";ctx.fillStyle="#fff";ctx.fillText("Aún no hay puntajes. ¡Sé el primero en recorrer el Distrito 2!",W/2,270);
+  }
+  rows.slice(0,10).forEach((r,i)=>{
+    const y=136+i*29;
+    if(i%2===0)rr(x0,y,x1-x0,26,6,"rgba(255,255,255,.06)");
+    const med=["#F4C430","#C9D1DB","#CD8A4B"][i];
+    ctx.textAlign="center";
+    if(med){circ(x0+30,y+13,11,med);ctx.fillStyle="#1b1424";}else ctx.fillStyle="#9fb6d8";
+    ctx.font="bold 13px Arial";ctx.fillText(i+1,x0+30,y+18);
+    ctx.textAlign="left";ctx.fillStyle="#fff";ctx.font="bold 16px Arial";ctx.fillText(String(r.player_name||"").slice(0,16),x0+70,y+19);
+    ctx.textAlign="right";ctx.fillStyle=GOLD;ctx.fillText(r.score,x1-210,y+19);
+    ctx.fillStyle="#fff";ctx.font="15px Arial";ctx.fillText((r.sellos||0)+"/4",x1-120,y+19);ctx.fillText(fmtTime(r.time_seconds||0),x1-16,y+19);
+  });
+  if(trophy.msg){ctx.textAlign="center";ctx.font="13px Arial";ctx.fillStyle="#9fb6d8";ctx.fillText(trophy.msg,W/2,448);}
+  ctx.textAlign="left";
+  drawBtns();
+}
+function endScreen(){
+  const w=st==="win";
+  if(w)overlay("¡LLEGASTE A LA OTRA RUTA!","Pase Dorado del Altiplano ganado",
+    ["Sellos: "+sellos+"/4  |  Bs "+money+"  |  Puntos "+score+(lastRun?"  |  Tiempo "+fmtTime(lastRun.time):""),"La Chacana brilla otra vez sobre El Alto.","Tilcayo sigue su viaje hacia el siguiente distrito."],"");
+  else overlay("SIN CORAZONES","Los autos, las zanjas y los chorros ganaron esta vez",
+    ["Tilcayo se sacude el polvo y lo intenta otra vez."],"");
+  if(saveMsg){ctx.textAlign="center";ctx.font="bold 15px Arial";ctx.fillStyle=GOLD;ctx.fillText(saveMsg,W/2,305);ctx.textAlign="left";}
+  drawBtns();
 }
 
 function draw(){
@@ -985,12 +1257,12 @@ function draw(){
   ctx.fillStyle="rgba(255,255,255,.35)";amb.forEach(a=>ctx.fillRect(Math.round(a.x),Math.round(a.y),a.s,a.s));
   ctx.restore();
   vignette();
-  if(st!=="menu"){ui();bubble();}
-  frame+=st==="menu"?1:0;
-  if(st==="menu")overlay("TILCAYO","La Odisea del Distrito 2 · El Alto, Bolivia",LORE.concat(["","Mover: ← → o A D · Saltar: Espacio, ↑ o W · Música: M","Pisa a los enemigos, golpea las cajas desde abajo y junta 4 sellos."]),"Toca la pantalla para jugar");
-  if(st==="win")overlay("¡LLEGASTE A LA OTRA RUTA!","Pase Dorado del Altiplano ganado",
-    ["Sellos: "+sellos+"/4  |  Bs "+money+"  |  Puntos "+score,"La Chacana brilla otra vez sobre El Alto.","Tilcayo sigue su viaje hacia el siguiente distrito."],"Toca para jugar de nuevo");
-  if(st==="lost")overlay("SIN CORAZONES","Los autos, las zanjas y los chorros ganaron esta vez",["Tilcayo se sacude el polvo y lo intenta otra vez."],"Toca para reintentar");
+  if(st==="play"||st==="win"||st==="lost"){ui();bubble();}
+  if(st==="menu"||st==="guide"||st==="trophies")frame++;
+  if(st==="menu")titleScreen();
+  else if(st==="guide")guideScreen();
+  else if(st==="trophies")trophiesScreen();
+  else if(st==="win"||st==="lost")endScreen();
 }
 
 let last=0,acc=0;const STEP=1000/60;
@@ -999,5 +1271,5 @@ function loop(t){
   while(acc>=STEP){update();acc-=STEP;}
   draw();requestAnimationFrame(loop);
 }
-start();st="menu";msgs=[];bub=null;Snd.music("menu");
+toMenu();
 requestAnimationFrame(loop);
