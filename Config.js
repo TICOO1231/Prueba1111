@@ -12,8 +12,8 @@
 //      <script src="tilcayo.js"></script>
 // ============================================================
 window.TILCAYO_CONFIG={
-  SUPABASE_URL:"https://TU-PROYECTO.supabase.co",
-  SUPABASE_ANON_KEY:"TU_CLAVE_ANON_O_PUBLISHABLE",
+  SUPABASE_URL:"https://zueoceniwkadhblwbizc.supabase.co",
+  SUPABASE_ANON_KEY:"sb_publishable_GdcZZ_dOV4wNM2p_RFvVRQ_v2lv4MWV",
   TABLE:"scores",       // nombre de la tabla de puntajes
   TOP_N:10,             // cuántos puestos muestra el Salón de Trofeos (máx. 10)
   TIMEOUT_MS:8000,      // tiempo máximo de espera por petición
