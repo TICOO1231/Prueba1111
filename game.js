@@ -14,14 +14,17 @@ const STOPS=[
  {x:1900,name:"Chacana",say:"La Chacana, Ojo del Universo. Llegar en taxi cuesta Bs 10 a 25."},
  {x:3100,name:"Entrada Folklórica",say:"Entrada del Apóstol Santiago. ¡Ojo con los hurtos en las ferias!"},
  {x:4300,name:"Planta La Francesa",say:"La Francesa: las visitas industriales necesitan permiso."}];
-const TIPS={car:"Inseguridad vial: espera que pase el auto y salta.",thief:"¡Un chorro! Písalo o esquívalo, te roba monedas.",
+const TIPS={moto:"¡Moto-chorro! Oye el motor y salta antes de que embista.",slinger:"Alguien lanza piedras: salta por encima.",car:"Inseguridad vial: espera que pase el auto y salta.",thief:"¡Un chorro! Písalo o esquívalo, te roba monedas.",
  dog:"Perro callejero: se prepara y embiste.",boss:"¡Don Chorro! Písalo 3 veces.",saw:"Sierras de fábrica: salta con ritmo."};
 
 // ---------- NIVEL ----------
 const CARS=[[300,560,2.2],[1250,1560,2.6],[2500,2820,2.5],[3700,4020,2.9],[4750,5050,3.1]];
-const THIEVES=[[1000,880,1150],[2250,2100,2400],[3450,3300,3600],[4500,4380,4650]];
-const DOGS=[[1700,1600,1850],[2900,2800,3000],[3900,3800,4100],[4950,4900,5100]];
-const BIRDS=[[1500,250],[2600,240],[3500,230],[4600,250],[5200,240]];
+const THIEVES=[[1000,880,1150],[2250,2100,2400],[3450,3300,3600],[4500,4380,4650],[2650,2580,2720],[4200,4120,4260],[5000,4940,5080]];
+const RATS=[[800,740,900],[1650,1560,1760],[2950,2880,3050],[3650,3560,3720],[4800,4700,4880],[5320,5240,5400]];
+const MOTOS=[[2300,2150,2520],[3400,3250,3660],[4500,4400,4720]];
+const SLINGERS=[1100,2750,3950,4620,5100];
+const DOGS=[[1700,1600,1850],[2900,2800,3000],[3900,3800,4100],[4950,4900,5100],[1250,1180,1350],[4250,4200,4350]];
+const BIRDS=[[1500,250],[2600,240],[3500,230],[4600,250],[5200,240],[800,230],[2000,200],[3000,220],[4000,210]];
 const SAWS=[[5160,60,1.5],[5290,60,1.8]];
 const SPRINGS=[1180,2050];
 const FLOATS=[[450,350,120],[1230,270,140],[2650,330,120],[4950,340,120]];
@@ -57,6 +60,9 @@ function start(){
   THIEVES.forEach(t=>foes.push({k:"thief",x:t[0],min:t[1],max:t[2],dir:-1,mode:0,w:30,h:46,y:GY-46,t:0,alive:true}));
   DOGS.forEach(t=>foes.push({k:"dog",x:t[0],min:t[1],max:t[2],dir:1,mode:0,w:44,h:30,y:GY-30,t:0,cool:0,wind:0,alive:true}));
   BIRDS.forEach(b=>foes.push({k:"bird",x:b[0],by:b[1],y:b[1],min:b[0]-220,max:b[0]+220,dir:1,w:34,h:24,t:0,alive:true}));
+  MOTOS.forEach(t=>foes.push({k:"moto",x:t[0],min:t[1],max:t[2],dir:1,mode:0,w:62,h:34,y:GY-34,t:0,cool:0,wind:0,alive:true}));
+  RATS.forEach(t=>foes.push({k:"rat",x:t[0],min:t[1],max:t[2],dir:1,w:26,h:16,y:GY-16,t:0,alive:true}));
+  SLINGERS.forEach(x=>foes.push({k:"slinger",x,min:x,max:x,dir:-1,w:30,h:46,y:GY-46,t:0,cool:60,alive:true}));
   saws=SAWS.map(s=>({x:s[0],bx:s[0],r:s[1],sp:s[2]}));
   qb=[];QROWS.forEach(r=>[...r[1]].forEach((ch,i)=>qb.push({x:r[0]+i*40,y:GY-135,w:40,h:40,c:ch,used:false,bump:0})));
   movers=MOVERS.map(m=>({x:m[0],bx:m[0],y:m[1],w:m[2],range:m[3],sp:m[4],dx:0}));
@@ -187,14 +193,19 @@ function update(){
       if(e.mode===0){if(near)e.dir=p.x>e.x?1:-1;e.x+=e.dir*(near?1.9:1);if(e.x<e.min){e.x=e.min;e.dir=1;}if(e.x>e.max){e.x=e.max;e.dir=-1;}if(near)tipOnce("thief");}
       else{e.x+=e.dir*4.4;if(Math.abs(e.x-p.x)>800)e.alive=false;}
     }
-    if(e.k==="dog"){
-      if(e.mode===0){e.x+=.8*e.dir;if(e.cool>0)e.cool--;else if(near&&Math.abs(p.x-e.x)<260&&Math.sign(p.x-e.x)===e.dir){e.mode=1;e.wind=35;tipOnce("dog");}}
+    if(e.k==="dog"||e.k==="moto"){
+      if(e.mode===0){e.x+=(e.k==="moto"?1:.8)*e.dir;if(e.cool>0)e.cool--;else if(near&&Math.abs(p.x-e.x)<(e.k==="moto"?340:260)&&Math.sign(p.x-e.x)===e.dir){e.mode=1;e.wind=35;tipOnce(e.k);}}
       else if(e.mode===1){if(--e.wind<=0)e.mode=2;}
-      else e.x+=3.4*e.dir;
+      else e.x+=(e.k==="moto"?5.4:3.4)*e.dir;
       if(e.x<e.min){e.x=e.min;e.dir=1;if(e.mode===2){e.mode=0;e.cool=90;}}
       if(e.x>e.max){e.x=e.max;e.dir=-1;if(e.mode===2){e.mode=0;e.cool=90;}}
     }
     if(e.k==="bird"){e.x+=1.4*e.dir;e.y=e.by+Math.sin(e.t*.05)*40;if(e.x<e.min)e.dir=1;if(e.x>e.max)e.dir=-1;}
+    if(e.k==="rat"){e.x+=2.2*e.dir;if(e.x<e.min)e.dir=1;if(e.x>e.max)e.dir=-1;}
+    if(e.k==="slinger"){
+      const d=p.x>e.x?1:-1;e.dir=d;
+      if(Math.abs(p.x-e.x)<420&&--e.cool<=0){e.cool=120;bullets.push({x:e.x+(d>0?28:-12),y:GY-32,w:14,h:14,vx:3.8*d,l:240,rock:true});tipOnce("slinger");}
+    }
     if(e.mode===1&&e.k==="thief")return;
     const box={x:e.x,y:e.y,w:e.w,h:e.h};
     if(!hit(hb,box))return;
@@ -285,7 +296,7 @@ function bg(){
     ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(x+560,190);ctx.lineTo(x+620,150);ctx.lineTo(x+685,200);ctx.lineTo(x+620,185);ctx.fill();
     ctx.beginPath();ctx.moveTo(x+265,225);ctx.lineTo(x+300,190);ctx.lineTo(x+340,230);ctx.lineTo(x+300,220);ctx.fill();
   });
-  par(.18,260,(x,i)=>{ // casas lejanas
+  cables();par(.18,260,(x,i)=>{ // casas lejanas
     const h=60+hs(i+1)*60;R(x,GY-h,120,h,"#a78fb0");R(x,GY-h,120,6,"#8a7396");
   });
   par(.32,230,(x,i)=>{ // ladrillo alteño
@@ -299,8 +310,32 @@ function bg(){
   });
 }
 
+function cables(){
+  R(0,100,W,2,"#2d3347");
+  par(.22,520,(x,i)=>{
+    R(x,100,6,GY-100,"#2d3347");R(x-14,98,34,6,"#2d3347");
+    const cx=x+((frame*.9+i*170)%520);
+    R(cx,102,2,14,"#222");R(cx-14,114,32,22,MAG);R(cx-14,114,32,5,GOLD);R(cx-10,121,10,10,"#bfe8ff");R(cx+4,121,10,10,"#bfe8ff");
+  });
+}
+function shadows(){
+  ctx.fillStyle="rgba(0,0,0,.28)";
+  const sh=(x,w)=>{ctx.beginPath();ctx.ellipse(x-cam,GY+3,w,5,0,0,7);ctx.fill();};
+  sh(p.x+19,22-Math.min(10,(GY-p.y-p.h)/12));
+  foes.forEach(e=>{if(e.alive&&e.k!=="bird")sh(e.x+e.w/2,e.w/2+2);});
+  cars.forEach(c=>sh(c.x+c.w/2,c.w/2+4));
+  if(boss.alive)sh(boss.x+boss.w/2,38);
+}
+function vignette(){
+  const g=ctx.createRadialGradient(W/2,H/2,H*.45,W/2,H/2,H*.95);
+  g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(10,10,40,.38)");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const l=ctx.createLinearGradient(0,0,W,0);l.addColorStop(0,"rgba(255,230,160,.10)");l.addColorStop(1,"rgba(255,230,160,0)");
+  ctx.fillStyle=l;ctx.fillRect(0,0,W,GY);
+}
 function ground(){
-  R(0,GY,W,H-GY,"#4a5360");R(0,GY,W,10,"#9aa3ad");R(0,GY+10,W,4,"#6b7480");
+  {const gg=ctx.createLinearGradient(0,GY,0,H);gg.addColorStop(0,"#5a6372");gg.addColorStop(1,"#343a46");ctx.fillStyle=gg;ctx.fillRect(0,GY,W,H-GY);}
+  par(1,40,(x,i)=>{R(x,GY+2,2,8,"#7e8793");R(x+20,GY+6,2,6,"#8a93a0");});R(0,GY,W,10,"#9aa3ad");R(0,GY+10,W,4,"#6b7480");
   par(1,80,x=>R(x,GY+40,40,5,GOLD));
   CARS.forEach(c=>{
     const x0=c[0]-cam,w=c[1]-c[0]+80;if(x0>W||x0+w<0)return;
@@ -374,7 +409,30 @@ function cat(){
   ctx.restore();
 }
 
-function drawFoe(e){
+function drawExtra(e){
+  const x=e.x-cam,y=e.y;if(x<-90||x>W+90)return;
+  const s=Math.floor(e.t/6)%2;
+  if(e.k==="moto"){
+    const d=e.dir,wd=e.mode===1,sx=wd?Math.round(Math.sin(e.t*2.5)*2):0,bx=x+sx;
+    R(bx+2,y+22,16,16,"#111");R(bx+44,y+22,16,16,"#111");R(bx+6,y+26,8,8,"#9aa3ad");R(bx+48,y+26,8,8,"#9aa3ad");
+    R(bx+10,y+14,42,12,e.mode===2?"#c0152a":MAG);R(bx+(d>0?40:6),y+6,14,10,"#2b2b3a");
+    R(bx+22,y-8,16,24,"#222");R(bx+22,y-20,16,14,"#111");R(bx+(d>0?30:22),y-16,8,6,"#8fd3ff");
+    R(bx+(d>0?56:-4),y+16,6,6,e.mode>0?"#fff3a8":"#ffec99");
+    if(e.mode===2)R(bx+(d>0?-26:62),y+16,24,5,"rgba(255,255,255,.4)");
+    if(wd){ctx.fillStyle="#ff3b3b";ctx.font="bold 22px Arial";ctx.fillText("!",bx+26,y-26);}
+  }
+  if(e.k==="rat"){
+    const d=e.dir;R(x,y+6,22,10,"#7c7f8c");R(x+(d>0?18:-4),y+4,10,9,"#8e91a0");R(x+(d>0?24:-4),y+7,4,3,"#222");
+    R(x+(d>0?-10:20),y+10,12,2,"#d49aa8");R(x+(s?3:9),y+14,5,3,"#555");R(x+(s?14:8),y+14,5,3,"#555");R(x+(d>0?20:2),y,4,6,"#d49aa8");
+  }
+  if(e.k==="slinger"){
+    const d=e.dir;R(x+5,y+16,20,26,"#6b3d1e");R(x+7,y+2,16,16,"#d9a27a");R(x+4,y-2,22,8,MAG);R(x+7,y+8,16,4,"#222");
+    R(x+(s?4:9),y+40,8,6,"#222");R(x+(s?18:13),y+40,8,6,"#222");
+    const a=Math.sin(e.t*.25)*4;R(x+(d>0?22:-4),y+18+a,12,5,"#d9a27a");
+    if(e.cool<20){R(x+(d>0?32:-14),y+14,8,8,"#8d93a1");}
+  }
+}
+function drawFoe(e){drawExtra(e);
   const x=e.x-cam,y=e.y;if(x<-80||x>W+80)return;
   const s=Math.floor(e.t/8)%2;
   if(e.k==="thief"){
@@ -452,7 +510,9 @@ function drawWorld(){
     ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.strokeRect(x-13,y-13,26,26);
     ctx.fillStyle="#30243D";ctx.font="bold 15px Arial";ctx.textAlign="center";ctx.fillText({shield:"S",double:"↑",magnet:"M",heart:"♥"}[w.t],x,y+5);ctx.textAlign="left";
   });
-  bullets.forEach(b=>{const x=b.x-cam;R(x,b.y,b.w,b.h,"#8a6a2a");R(x+3,b.y+3,b.w-6,b.h-6,"#C8963A");R(x+8,b.y-4,6,6,"#8a6a2a");});
+  bullets.forEach(b=>{const x=b.x-cam;
+    if(b.rock){R(x,b.y,b.w,b.h,"#555a66");R(x+2,b.y+2,b.w-6,b.h-6,"#8d93a1");R(x+3,b.y+3,4,4,"#c9cedb");return;}
+    R(x,b.y,b.w,b.h,"#8a6a2a");R(x+3,b.y+3,b.w-6,b.h-6,"#C8963A");R(x+8,b.y-4,6,6,"#8a6a2a");});
 }
 
 function ui(){
@@ -497,9 +557,10 @@ function draw(){
   bg();ground();
   STOPS.forEach((s,i)=>landmark(i,s.x));
   goal();drawWorld();
-  foes&&foes.forEach(drawFoe);cars&&cars.forEach(drawCar);drawBoss();cat();
+  shadows();foes.forEach(drawFoe);cars.forEach(drawCar);drawBoss();cat();
   parts&&parts.forEach(q=>{ctx.globalAlpha=Math.max(0,q.l/45);R(q.x-cam,q.y,q.s,q.s,q.c);});ctx.globalAlpha=1;
   ctx.restore();
+  vignette();
   if(st!=="menu"){ui();bubble();}
   frame+=st==="menu"?1:0;
   if(st==="menu")overlay("TILCAYO","La Odisea del Distrito 2 · El Alto, Bolivia",LORE.concat(["","Salta con SALTAR. Pisa a los enemigos. Junta 4 sellos."]),"Toca la pantalla para jugar");
